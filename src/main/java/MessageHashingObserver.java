@@ -1,12 +1,9 @@
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class MessageHashingObserver implements Observer {
 
 	private static final int HASHING_ITERACTIONS = 5000;
-	private static final byte[] PIPES = "||".getBytes(StandardCharsets.UTF_8);
 	private Sink sink;
 	private AtomicSalt saltProvider = new AtomicSalt();
 
@@ -29,7 +26,6 @@ public class MessageHashingObserver implements Observer {
 		// Plus we get thread safety due to the nature of local scope
 		byte[] salt = saltProvider.get();
 		sink.publishHash(id, message, salt, hash(message, salt));
-
 	}
 
 	private synchronized byte[] hash(byte[] message, byte[] salt) {
@@ -39,21 +35,24 @@ public class MessageHashingObserver implements Observer {
 		} catch (NoSuchAlgorithmException e) {
 			throw new IllegalArgumentException(e);
 		}
-		byte[] hashedMessage = sha256(md, message, salt);
-		for (int i = 0; i < HASHING_ITERACTIONS - 1; i++) {
+		byte[] hashedMessage = message;
+		for (int i = 0; i < HASHING_ITERACTIONS; i++) {
 			hashedMessage = sha256(md, hashedMessage, salt);
 		}
 		return hashedMessage;
 	}
 
-	private synchronized byte[] sha256(MessageDigest md, byte[] message, byte[] salt) {
+	private byte[] sha256(MessageDigest md, byte[] message, byte[] salt) {
 		md.reset();
 		md.update(bytesConcat(message, salt));
 		return md.digest();
 	}
 
 	private byte[] bytesConcat(byte[] message, byte[] salt) {
-		return ByteBuffer.allocate(message.length + salt.length).put(message).put(salt).array();
+		byte[] result = new byte[message.length + salt.length];
+		System.arraycopy(message, 0, result, 0, message.length);
+		System.arraycopy(salt, 0, result, message.length, salt.length);
+		return result;
 	}
 
 }
